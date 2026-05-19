@@ -51,8 +51,7 @@ architecture rtl of dft8_spectrum is
   );
 
   -- Sample buffer typed as signed so the multiplier port widths stay inside
-  -- the DSP48 envelope. The OLD design used `array of integer`, which forced
-  -- 32-bit multipliers and prevented DSP inference.
+  -- the DSP48 envelope. 
   type sample_array_t is array (0 to 7) of signed(WIDTH - 1 downto 0);
   signal samples_r      : sample_array_t := (others => (others => '0'));
   signal sample_count_r : natural range 0 to 8 := 0;
