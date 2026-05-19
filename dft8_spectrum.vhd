@@ -4,35 +4,6 @@ use ieee.numeric_std.all;
 use ieee.fixed_pkg.all;
 
 -- 8-point Discrete Fourier Transform spectrum analyser, DSP48-targeted.
---
--- The previous version of this file implemented the DFT as a single-cycle
--- combinational sum using 32-bit integer arithmetic. It synthesised, but
--- Vivado used LUT/CARRY4 fabric (Synth report: 0 DSPs, ~3.8k cells). The
--- multiplier widths were 11x32, which is outside the DSP48E1 18x25 envelope,
--- and there was no pipelining for Vivado to absorb into the DSP's A/B/M/P
--- registers.
---
--- This version makes three changes that together cause DSP48 inference:
---
---   1. The sample buffer is signed(WIDTH-1 downto 0), NOT VHDL integer. This
---      keeps the multiplier inside the DSP48E1's 16x12 -> 28-bit product
---      envelope (well below the 18x25 limit).
---   2. The multiply-accumulate is a canonical 3-stage pipeline:
---        Stage 1 : operand registers   (sample_a_r, cos_b_r, nsin_b_r)
---        Stage 2 : product register    (prod_cos_r, prod_sin_r)  -> DSP48 M reg
---        Stage 3 : accumulator         (acc_re_r,   acc_im_r)    -> DSP48 P reg
---      Vivado absorbs each stage into the corresponding DSP48 internal
---      register. use_dsp = "yes" on the accumulators makes the intent explicit.
---   3. The DFT runs serially: 8 MACs per output bin, 4 bins, with a short
---      pipeline-drain phase between bins. Two DSP48 slices (one for the cos
---      MAC chain, one for the sin MAC chain) handle the whole transform in
---      ~12 cycles per bin.
---
--- The imaginary chain uses pre-negated sin twiddles (TW_NSIN) so it can run
--- the same pure-accumulate pattern as the real chain. This matches the
--- DSP48E1's OPMODE for a straight P <- P + M MAC and yields the cleanest
--- inference. The DFT's imaginary part is -Sum(x[n]*sin(...)), which equals
--- Sum(x[n]*(-sin(...))), i.e. an accumulate of x * TW_NSIN.
 
 entity dft8_spectrum is
   generic (
